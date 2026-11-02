@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ur" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f766e">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>سمیع الدین</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+:root{--bg:#f6f7f9;--card:#ffffff;--tx:#1a1d21;--mut:#6b7280;--pri:#0f766e;--on:#ffffff;--bd:#e5e7eb;--bad:#b91c1c;--good:#15803d;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111418;--card:#1b2026;--tx:#eef0f3;--mut:#9aa3af;--pri:#2dd4bf;--on:#0b1512;--bd:#2c333b;--bad:#f87171;--good:#4ade80;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#111418;--card:#1b2026;--tx:#eef0f3;--mut:#9aa3af;--pri:#2dd4bf;--on:#0b1512;--bd:#2c333b;--bad:#f87171;--good:#4ade80;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:"Noto Nastaliq Urdu","Noto Sans Arabic",system-ui,sans-serif;line-height:1.9;padding:12px 12px 24px}
+h1{text-align:center;font-size:22px;margin:4px 0 10px;color:var(--pri)}
+h2{font-size:18px;margin:6px 0 10px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:12px}
+label{display:block;font-size:13px;color:var(--mut);margin-top:6px}
+input,button{font:inherit;width:100%;box-sizing:border-box;padding:8px 10px;margin:2px 0;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx)}
+button{background:var(--pri);color:var(--on);border:0;font-weight:700;margin-top:10px}
+button.s{width:auto;padding:2px 10px;margin:0;background:transparent;color:var(--bad);border:1px solid var(--bd)}
+nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;background:var(--card);border:1px solid var(--bd);border-radius:12px;margin-bottom:12px;overflow:hidden}
+nav button{background:transparent;color:var(--mut);border:0;border-radius:0;margin:0;padding:10px 4px}
+nav button.on{color:var(--on);background:var(--pri)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd)}
+.row:last-child{border:0}
+.m{color:var(--mut);font-size:13px}
+.g{color:var(--good);font-weight:700}.b{color:var(--bad);font-weight:700}
+</style>
+</head>
+<body>
+<h1>سمیع الدین</h1>
+<nav id="nav"></nav>
+<div id="app"></div>
+<script>
+const $=s=>document.querySelector(s);
+const td=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const f=v=>(Math.round(v*100)/100).toLocaleString('en-US');
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let S=[],db=null,status='لوڈ ہو رہا ہے…',tab='sell',ref=td();
+const lsSave=()=>{try{localStorage.setItem('shop',JSON.stringify({sales:S}))}catch(e){}};
+function put(o){S.push(o);if(db)db.collection('sales').doc(String(o.id)).set(o).catch(()=>alert('محفوظ نہیں ہو سکا، انٹرنیٹ چیک کریں'));else lsSave()}
+function rem(id){S=S.filter(x=>x.id!=id);if(db)db.collection('sales').doc(String(id)).delete().catch(()=>alert('حذف نہیں ہو سکا'));else lsSave()}
+function calc(p){const s=S.filter(x=>x.d.startsWith(p));
+  const sa=s.reduce((a,x)=>a+x.q*x.p,0),co=s.reduce((a,x)=>a+x.q*x.c,0);
+  return{sa,co,pr:sa-co,q:s.reduce((a,x)=>a+x.q,0)}}
+function box(t,p){const r=calc(p);return `<div class="card"><b>${t}</b>
+<div class="row"><span>فروخت شدہ تعداد</span><span>${f(r.q)}</span></div>
+<div class="row"><span>کل فروخت</span><span>${f(r.sa)}</span></div>
+<div class="row"><span>قیمت خرید (لاگت)</span><span>${f(r.co)}</span></div>
+<div class="row"><b>منافع</b><span class="${r.pr>=0?'g':'b'}">${f(r.pr)}</span></div></div>`}
+function list(d){const l=S.filter(x=>x.d==d).sort((a,b)=>b.id-a.id);
+  return l.map(x=>`<div class="row"><span>${esc(x.n||'چیز')} × ${f(x.q)}<br><span class="m">منافع ${f(x.q*(x.p-x.c))}</span></span><button class="s" onclick="del(${x.id})">حذف</button></div>`).join('')||'<span class="m">کوئی اندراج نہیں</span>'}
+function render(){
+  $('#nav').innerHTML=[['sell','فروخت لکھیں'],['rep','رپورٹ']].map(([k,l])=>`<button class="${k==tab?'on':''}" onclick="tab='${k}';render()">${l}</button>`).join('');
+  $('#app').innerHTML=tab=='sell'
+  ?`<div class="card"><h2>فروخت کا اندراج</h2>
+<label>چیز کا نام (اختیاری)</label><input id="n">
+<label>قیمت خرید (فی عدد)</label><input id="c" type="number" inputmode="decimal">
+<label>قیمت فروخت (فی عدد)</label><input id="p" type="number" inputmode="decimal">
+<label>کتنی تعداد فروخت ہوئی</label><input id="q" type="number" inputmode="decimal">
+<label>تاریخ</label><input id="d" type="date" value="${td()}">
+<button onclick="add()">محفوظ کریں</button></div>
+<div class="card"><b>آج کے اندراجات</b>${list(td())}</div>`
+  :`<input type="date" value="${ref}" onchange="ref=this.value||td();render()">`
+   +box('روزانہ ('+ref+')',ref)+box('ماہانہ ('+ref.slice(0,7)+')',ref.slice(0,7))+box('سالانہ ('+ref.slice(0,4)+')',ref.slice(0,4))
+   +`<div class="card"><b>اس دن کے اندراجات</b>${list(ref)}</div><p class="m" style="text-align:center">${status}</p>`;
+}
+function add(){const c=+$('#c').value,p=+$('#p').value,q=+$('#q').value,d=$('#d').value||td();
+  if($('#c').value===''||$('#p').value===''||!(q>0)||!(c>=0)||!(p>=0))return alert('قیمت خرید، قیمت فروخت اور تعداد لکھیں');
+  put({id:Date.now(),d,n:$('#n').value.trim(),q,p,c});ref=d;render()}
+function del(id){if(confirm('یہ اندراج حذف کریں؟')){rem(id);render()}}
+render();
+(async()=>{
+  try{firebase.initializeApp({apiKey:"AIzaSyBUcwRcFRclwVk7qgw3cYfaEtf1V6PCn_M",authDomain:"sami-uddin.firebaseapp.com",projectId:"sami-uddin",storageBucket:"sami-uddin.firebasestorage.app",messagingSenderId:"331088693599",appId:"1:331088693599:web:3956d40475488831d6ceea"});db=firebase.firestore()}catch(e){db=null}
+  if(!db){try{S=(JSON.parse(localStorage.getItem('shop'))||{}).sales||[]}catch(e){}status='Firebase سے جڑ نہیں سکا، انٹرنیٹ چیک کریں (ڈیٹا فی الحال صرف اس فون میں)';render();return}
+  status='ڈیٹا آن لائن (Firebase) محفوظ ہے ✓';
+  db.collection('sales').onSnapshot(sn=>{S=sn.docs.map(d=>d.data());
+    const a=document.activeElement;if(!a||a.tagName!='INPUT'||tab=='rep')render()},()=>{status='ڈیٹا لوڈ نہیں ہو سکا';render()});
+})();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
